@@ -1,0 +1,13 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Prompt Arguments" type="Application" factoryName="Application">
+    <option name="MAIN_CLASS_NAME" value="main.java.project3.Main" />
+    <module name="CMPS-455-Project-3" />
+    <option name="PROGRAM_PARAMETERS" value="$Prompt$" />
+    <selectedOptions>
+      <option name="environmentVariables" visible="false" />
+    </selectedOptions>
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>

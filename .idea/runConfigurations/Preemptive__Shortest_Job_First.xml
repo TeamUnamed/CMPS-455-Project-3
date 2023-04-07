@@ -1,0 +1,13 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Preemptive, Shortest Job First" type="Application" factoryName="Application">
+    <option name="MAIN_CLASS_NAME" value="main.java.project3.Main" />
+    <module name="CMPS-455-Project-3" />
+    <option name="PROGRAM_PARAMETERS" value="-S 4" />
+    <selectedOptions>
+      <option name="environmentVariables" visible="false" />
+    </selectedOptions>
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>
