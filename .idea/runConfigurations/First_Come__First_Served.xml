@@ -1,6 +1,6 @@
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="First-Come, First Served" type="Application" factoryName="Application">
-    <option name="MAIN_CLASS_NAME" value="main.java.project3.Main" />
+    <option name="MAIN_CLASS_NAME" value="net.unamed.cmps455.project3.Main" />
     <module name="CMPS-455-Project-3" />
     <option name="PROGRAM_PARAMETERS" value="-S 1" />
     <selectedOptions>
