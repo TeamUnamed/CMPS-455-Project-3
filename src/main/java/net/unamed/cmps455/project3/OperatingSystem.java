@@ -6,47 +6,29 @@ import net.unamed.cmps455.project3.cpu.ReadyQueue;
 
 public class OperatingSystem {
 
-    /**
-     * @param args Arguments for Simulator Control
-     *     <ul>
-     *       <li> {@code -S <algorithm>}
-     *             Scheduling algorithm (<b>required</b>) - {@code <algorithm>: integer (1-4)}
-     *         <ul>
-     *           <li>{@code -S 1}
-     *             First-Come, First-Served</li>
-     *           <li>{@code -S 2 <quantum>}
-     *             Round-Robin - {@code <quantum>: integer (2-10)}</li>
-     *           <li>{@code -S 3}
-     *             Non-Preemptive, Shortest Job First</li>
-     *           <li>{@code -S 4}
-     *             Preemptive, Shortest Job First</li>
-     *         </ul>
-     *       </li>
-     *       <li>{@code -C <cores>}
-     *             Number of cores (<b>optional</b>, <i>default 1</i>) - {@code <cores>: integer (1-4)}</li>
-     *     </ul>
-     */
-    public static void main(String[] args) {
-
-    }
-
-    private ReadyQueue readyQueue;
+    public ReadyQueue readyQueue;
     private Core[] cores;
     private Dispatcher[] dispatchers;
 
-    private OperatingSystem(int cores) {
+    public OperatingSystem(int cores, TaskThread... tasks) {
         this.cores = new Core[cores];
         this.dispatchers = new Dispatcher[cores];
 
         // Create Ready Queue
-
+        readyQueue = new ReadyQueue();
+        for (TaskThread task : tasks) {
+            readyQueue.add(task);
+        }
 
         // Create Cores & Dispatchers
-
+        for (int i = 0; i < cores; i++) {
+            dispatchers[i] = new Dispatcher(this, null);
+        }
 
         // Start Threads
-
-
+        for (int i = 0; i < cores; i++) {
+            dispatchers[i].start();
+        }
     }
 
     /**
