@@ -1,5 +1,7 @@
 package net.unamed.cmps455.project3;
 
+import java.util.Random;
+
 public class Main {
 
     /**
@@ -23,10 +25,17 @@ public class Main {
      *     </ul>
      */
     public static void main(String[] args) {
-        TaskThread[] threads = {
-                new TaskThread("Alpha"),
-                new TaskThread("Beta")
-        };
-        OperatingSystem os = new OperatingSystem(1, threads);
+        OperatingSystem os = new OperatingSystem(1);
+
+        Random random = new Random();
+        int taskCount = random.nextInt(25) + 1;
+        System.out.printf("# task_threads = %d%n", taskCount);
+
+        for (int i = 0; i < taskCount; i++) {
+            //os.log("Creating process thread %d", i);
+            os.scheduleTask(new Process(i, random.nextInt(4) + 1));
+        }
+
+        os.exitOnQueueEmpty();
     }
 }
