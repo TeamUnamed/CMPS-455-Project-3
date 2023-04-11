@@ -1,7 +1,7 @@
 package net.unamed.cmps455.project3.cpu;
 
 import net.unamed.cmps455.project3.OperatingSystem;
-import net.unamed.cmps455.project3.TaskThread;
+import net.unamed.cmps455.project3.Process;
 
 import java.util.Iterator;
 import java.util.Optional;
@@ -11,27 +11,54 @@ import java.util.Optional;
  */
 public class Dispatcher extends Thread {
 
+    private final int ssid;
     private final OperatingSystem os;
     private final Core cpu;
 
-    public Dispatcher(OperatingSystem os, Core cpu) {
+    private final Object callback;
+
+    public Dispatcher(int ssid, OperatingSystem os, Core cpu) {
+        this.ssid = ssid;
         this.os = os;
         this.cpu = cpu;
+
+        this.callback = new Object();
+
+        log("Using CPU %d",cpu.getSSID());
+    }
+
+    private void log(String msg, Object... args) {
+        System.out.printf("%-15s | %s%n", "Dispatcher " + ssid, String.format(msg, args));
     }
 
     @Override
     public void run() {
-        System.out.println("Dispatcher Started!");
         ReadyQueue readyQueue = os.getReadyQueue();
-        while(readyQueue.hasQueued()) {
-            Optional<TaskThread> optional = readyQueue.processQueue(this::getNextTaskThread);
-            optional.ifPresentOrElse(
-                    (taskThread) -> System.out.println("Task Thread Found: " + taskThread.name),
-                    () -> System.out.println("No Task Threads")
-            );
-        }
 
-        System.out.println("Ready Queue Empty :: Bye!");
+        while(!os.isExit()) {
+            Optional<Process> optional = readyQueue.processQueue(this::getNextTaskThread);
+            if (optional.isPresent()) {
+                cpu.scheduleProcess(optional.get());
+                cpu.registerCallback(this::onCallback);
+                waitForCallback();
+            }
+        }
+    }
+
+    private void onCallback() {
+        synchronized (callback) {
+            callback.notify();
+        }
+    }
+
+    private void waitForCallback() {
+        synchronized (callback) {
+            try {
+                callback.wait();
+            } catch (InterruptedException e) {
+                log(e.getMessage());
+            }
+        }
     }
 
     /*
@@ -40,15 +67,15 @@ public class Dispatcher extends Thread {
     /**
      * @see ReadyQueue.QueueProcessor#process(Iterator) 
      */
-    private TaskThread getNextTaskThread(Iterator<TaskThread> iterator) {
-        TaskThread taskThread = null;
+    private Process getNextTaskThread(Iterator<Process> iterator) {
+        Process task = null;
 
         // Get the first TaskThread from queue and remove
         if (iterator.hasNext()) {
-            taskThread = iterator.next();
+            task = iterator.next();
             iterator.remove();
         }
 
-        return taskThread;
+        return task;
     }
 }
