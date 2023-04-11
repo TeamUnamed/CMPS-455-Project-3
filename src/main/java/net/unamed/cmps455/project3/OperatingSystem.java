@@ -10,20 +10,23 @@ public class OperatingSystem {
     private Core[] cores;
     private Dispatcher[] dispatchers;
 
-    public OperatingSystem(int cores, TaskThread... tasks) {
+    private boolean exit = false;
+
+    public OperatingSystem(int cores) {
         this.cores = new Core[cores];
         this.dispatchers = new Dispatcher[cores];
 
         // Create Ready Queue
         readyQueue = new ReadyQueue();
-        for (TaskThread task : tasks) {
-            readyQueue.add(task);
-        }
 
         // Create Cores & Dispatchers
         for (int i = 0; i < cores; i++) {
-            dispatchers[i] = new Dispatcher(this, null);
+            log("Forking dispatcher %d", i);
+            this.cores[i] = new Core(i, this);
+            dispatchers[i] = new Dispatcher(i,this, this.cores[i]);
         }
+
+        log("Now releasing dispatchers");
 
         // Start Threads
         for (int i = 0; i < cores; i++) {
@@ -31,11 +34,29 @@ public class OperatingSystem {
         }
     }
 
-    /**
-     * Get the ready queue for the CPU's task scheduling.
-     * @return the ReadyQueue
-     */
+    public void scheduleTask(Process task) {
+        readyQueue.add(task);
+    }
+
     public ReadyQueue getReadyQueue() {
         return readyQueue;
+    }
+
+    public boolean isExit() {
+        return exit;
+    }
+
+    // Does not 100% work yet
+    // Need to add a check for running processes
+    public void exitOnQueueEmpty() {
+        while (readyQueue.hasQueued()) {
+            Thread.yield();
+        };
+        log("Exiting");
+        exit = true;
+    }
+
+    private void log(String msg, Object... args) {
+        System.out.printf("%-15s | %s%n", "Main Thread", String.format(msg, args));
     }
 }
