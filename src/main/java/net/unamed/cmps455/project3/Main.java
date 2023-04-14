@@ -25,7 +25,7 @@ public class Main {
      *     </ul>
      */
     public static void main(String[] args) {
-        OperatingSystem os = new OperatingSystem(1);
+        OperatingSystem os = new OperatingSystem(1, new FCFSAlgorithm());
 
         Random random = new Random();
         int taskCount = random.nextInt(25) + 1;
@@ -33,9 +33,12 @@ public class Main {
 
         for (int i = 0; i < taskCount; i++) {
             //os.log("Creating process thread %d", i);
-            os.scheduleTask(new Process(i, random.nextInt(4) + 1));
+            os.scheduleTask(new Task(i, random.nextInt(8) + 1));
         }
 
-        os.exitOnQueueEmpty();
+        os.enter();
+
+//        os.exitOnQueueEmpty();
+        os.exit(1);
     }
 }

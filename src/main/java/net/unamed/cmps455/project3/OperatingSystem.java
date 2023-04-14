@@ -3,38 +3,60 @@ package net.unamed.cmps455.project3;
 import net.unamed.cmps455.project3.cpu.Core;
 import net.unamed.cmps455.project3.cpu.Dispatcher;
 import net.unamed.cmps455.project3.cpu.ReadyQueue;
+import net.unamed.cmps455.project3.util.CallbackCaller;
+import net.unamed.cmps455.project3.util.CallbackEvent;
+import net.unamed.cmps455.project3.util.CallbackManager;
 
-public class OperatingSystem {
+import java.util.function.Consumer;
 
-    public ReadyQueue readyQueue;
-    private Core[] cores;
-    private Dispatcher[] dispatchers;
+public class OperatingSystem implements CallbackCaller<CallbackEvent> {
+
+
+    private final CallbackManager<CallbackEvent> callbackManager;
+
+    private final ReadyQueue readyQueue;
+    private final Core[] cores;
+    private final Dispatcher[] dispatchers;
+    private final DispatchAlgorithm algorithm;
 
     private boolean exit = false;
 
-    public OperatingSystem(int cores) {
-        this.cores = new Core[cores];
-        this.dispatchers = new Dispatcher[cores];
+    public OperatingSystem(int cores, DispatchAlgorithm algorithm) {
+        this.callbackManager = new CallbackManager<>();
 
         // Create Ready Queue
         readyQueue = new ReadyQueue();
 
+        this.cores = new Core[cores];
+        this.dispatchers = new Dispatcher[cores];
+
+        this.algorithm = algorithm;
+
+    }
+
+    public void enter() {
+
         // Create Cores & Dispatchers
-        for (int i = 0; i < cores; i++) {
-            log("Forking dispatcher %d", i);
+        for (int i = 0; i < cores.length; i++) {
+            log("Forking Core Thread %d", i);
             this.cores[i] = new Core(i, this);
-            dispatchers[i] = new Dispatcher(i,this, this.cores[i]);
+            log("Forking Dispatcher Thread %d", i);
+            dispatchers[i] = new Dispatcher(i,this, this.cores[i], algorithm);
         }
 
-        log("Now releasing dispatchers");
+        System.out.println();
+        log("Releasing Dispatchers");
+        System.out.println();
 
         // Start Threads
-        for (int i = 0; i < cores; i++) {
+        for (int i = 0; i < cores.length; i++) {
             dispatchers[i].start();
+            cores[i].start();
         }
     }
 
-    public void scheduleTask(Process task) {
+    public void scheduleTask(Task task) {
+        log("Creating Process thread %d", task.id);
         readyQueue.add(task);
     }
 
@@ -46,17 +68,32 @@ public class OperatingSystem {
         return exit;
     }
 
-    // Does not 100% work yet
-    // Need to add a check for running processes
-    public void exitOnQueueEmpty() {
-        while (readyQueue.hasQueued()) {
-            Thread.yield();
-        };
-        log("Exiting");
+    public void exit() {
+        exit(0);
+    }
+
+    public void exit(int code) {
         exit = true;
+        callbackManager.sendCallback(new SystemExitEvent(code));
     }
 
     private void log(String msg, Object... args) {
         System.out.printf("%-15s | %s%n", "Main Thread", String.format(msg, args));
+    }
+
+    @Override
+    public void registerCallback(Consumer<CallbackEvent> consumer) {
+        callbackManager.registerCallback(consumer);
+    }
+
+    public static class SystemExitEvent extends CallbackEvent {
+
+        public final int code;
+
+        public SystemExitEvent(int code) {
+            super("system_exit");
+            this.code = code;
+        }
+
     }
 }
