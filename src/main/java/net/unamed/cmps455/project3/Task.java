@@ -12,6 +12,18 @@ public class Task implements Runnable {
         this.maxBurst = burst;
     }
 
+    public int getCurrentBurst() {
+        return this.burst;
+    }
+
+    public int getMaxBurst() {
+        return this.maxBurst;
+    }
+
+    public int getRemainingBurst() {
+        return getMaxBurst() - getCurrentBurst();
+    }
+
     public void setAllottedBurst(int allottedBurst) {
         this.allottedBurst = allottedBurst;
     }
