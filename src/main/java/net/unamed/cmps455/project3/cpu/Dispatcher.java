@@ -1,140 +1,144 @@
 package net.unamed.cmps455.project3.cpu;
 
-import net.unamed.cmps455.project3.DispatchAlgorithm;
 import net.unamed.cmps455.project3.OperatingSystem;
+import net.unamed.cmps455.project3.SystemComponent;
 import net.unamed.cmps455.project3.Task;
-import net.unamed.cmps455.project3.util.CallbackEvent;
-import net.unamed.cmps455.project3.util.SemaphoreLock;
+import net.unamed.cmps455.project3.util.SyncBool;
 
 import java.util.Optional;
+import java.util.concurrent.Semaphore;
 
 /**
  * Abstract representation of a Dispatcher
+ * @implNote The Dispatcher is always aware of its assigned Core, but the Core
+ * is not aware of the Dispatcher. If the Core needs to 'send' information to
+ * the Dispatcher, it must be passed to the system then to the Dispatcher.
  */
-public class Dispatcher extends Thread {
+public class Dispatcher extends SystemComponent {
 
-    private final int ssid;
     private final ReadyQueue readyQueue;
-    private final Core cpu;
+    private final Core core;
 
     // Just a class of methods to use
     private final DispatchAlgorithm algorithm;
 
-    // Has internal mutex to protect access
-    private final SemaphoreLock sleepLock;
+    private final SyncBool taskRunning;
+    private final SyncBool taskQueued;
 
-    // These are only changed internally
-    // Do not change in 'onCallback'
-    private boolean waitingOnCore = false;
-    private boolean waitingOnTask = false;
+    private final Semaphore mutex;
 
-    // By nature, these are only changed while a thread has a mutex
-    // Only change in 'onCallback'
-    private int exitCode = -1;
-    private boolean queueEmpty = false;
+    private Task returnedTask;
 
-    public Dispatcher(int ssid, OperatingSystem os, Core cpu, DispatchAlgorithm algorithm) {
-        this.ssid = ssid;
+    int currentBurst = Integer.MAX_VALUE;
+    int maxBurst = Integer.MAX_VALUE;
+
+    public Dispatcher(int ssid, OperatingSystem os, Core core, DispatchAlgorithm algorithm) {
+        super(ssid, os);
         this.readyQueue = os.getReadyQueue();
-        this.cpu = cpu;
+        this.core = core;
         this.algorithm = algorithm;
 
-        os.registerCallback(this::onCallback);
-        readyQueue.registerCallback(this::onCallback);
-        cpu.registerCallback(this::onCallback);
+        taskRunning = new SyncBool(false);
+        taskQueued = new SyncBool(false);
 
-        this.sleepLock = new SemaphoreLock();
+        mutex = new Semaphore(1);
 
-        log("Using CPU %d",cpu.getSSID());
+        log("Using CPU %d", core.getSSID());
+        log("Running %s", algorithm);
     }
 
     @Override
-    public void run() {
-        log("Running %s", algorithm);
+    public void tick() {
+        Task returnedTask = null;
 
-        while(exitCode == -1 || (exitCode == 1 && !queueEmpty)) {
-            // Early wakeup >> Go back to sleep
-            if ((queueEmpty && waitingOnTask) || waitingOnCore) {
-                log_debug("Early WakeUp... Nothing to Do... Sleeping");
-                sleep();
-                continue;
+        try {
+            mutex.acquire();
+            try {
+                returnedTask = this.returnedTask;
+                this.returnedTask = null;
+            } finally {
+                mutex.release();
             }
+        } catch (InterruptedException e) {
+            log(e.getMessage());
+        }
+
+        // Early wakeup >> Go back to sleep
+        if (returnedTask == null && !taskQueued.get() && (taskRunning.get() || !readyQueue.hasQueued())) {
+            sleep();
+
+        } else if (returnedTask != null) {
+            os.scheduleTask(returnedTask);
+
+        } else {
+            taskQueued.set(false);
 
             // Select next Task
-            Optional<Task> task = readyQueue.processQueue(algorithm::pickFromQueue);
+            Optional<Task> optionalTask = readyQueue.processQueue(algorithm::pickFromQueue);
 
-            if (task.isPresent()) {
-                Task process = task.get();
-                System.out.println();
-                log_debug("Selected Process %-2d", process.id);
-                log("Running Process %-2d", process.id);
+            if (optionalTask.isPresent()) {
 
                 // Schedule Next Task on core
-                log_debug("Sending Task to Core %d", cpu.getSSID());
-                Optional<Task> interrupted = cpu.scheduleProcess(process, process.maxBurst);
-
-                // Return any interrupted Task to the queue
-                interrupted.ifPresent(readyQueue::add);
-
-                // Sleep until Task finishes running on core.
-                log_debug("Waiting for Task to complete");
-                waitingOnCore = true;
-                sleep();
-                waitingOnCore = false;
-            } else {
-                // Sleep until a Task is added to ready queue.
-                log_debug("No Processes... Sleeping");
-                waitingOnTask = true;
-                sleep();
-                waitingOnTask = false;
+                Task task = optionalTask.get();
+                System.out.println();
+                log("Dispatching Task %-2d", task.id);
+                this.currentBurst = task.getCurrentBurst();
+                this.maxBurst = task.getMaxBurst();
+                taskRunning.set(true);
+                core.scheduleTask(task);
             }
-
         }
-        log_debug("Dispatcher %d Closing", ssid);
     }
 
-    private void onCallback(CallbackEvent event) {
-        log_debug("Callback <%s> received...", event.name);
-        if (event instanceof OperatingSystem.SystemExitEvent exitEvent) {
-            exitCode = exitEvent.code;
-            log_debug("Exit Code <%d> received...", exitCode);
-        }
+    @Override
+    public void sendMessage(String message, Object... payload) {
+        log_debug("[Msg] Received message: \"%s\"", message);
 
-        if (event.name.equalsIgnoreCase("queue_empty")) {
-            queueEmpty = true;
-        }
+        switch (message) {
+            case "system_exit":
+                int exitCode = (int) payload[0];
+                if (exitCode == 1 || (exitCode == 2 && !taskRunning.get() && !readyQueue.hasQueued()))
+                    exit.set(true);
+                break;
+            case "task_queued":
+                int currentBurst = (int) payload[0];
+                int maxBurst = (int) payload[1];
+                if (currentBurst < this.currentBurst && maxBurst < this.maxBurst)
+                    taskQueued.set(true);
+                break;
 
-        if (event.name.equalsIgnoreCase("task_queued")) {
-            queueEmpty = false;
+            case "task_stop:quantum_reached":
+            case "task_stop:preempted":
+                try {
+                    mutex.acquire();
+                    try {
+                        returnedTask = (Task) payload[0];
+                    } finally {
+                        mutex.release();
+                    }
+                } catch (InterruptedException e) {
+                    log(e.getMessage());
+                }
+            case "task_stop:completed":
+                taskRunning.set(false);
+                break;
         }
 
         wake();
     }
 
-    private void sleep() {
-        if (exitCode == 0)
-            return;
-
-        try {
-            sleepLock.lock();
-        } catch (InterruptedException e) {
-            log(e.getMessage());
-        }
-    }
-
-    private void wake() {
-        try {
-            sleepLock.unlock();
-        } catch (InterruptedException e) {
-            log(e.getMessage());
-        }
-    }
-
-    private void log(String msg, Object... args) {
+    @Override
+    public void log(String msg, Object... args) {
         System.out.printf("%-15s | %s%n", "Dispatcher " + ssid, String.format(msg, args));
     }
 
-    private void log_debug(String msg, Object... args) {
-        System.out.printf("%-15s | [Debug] %s%n", "Dispatcher " + ssid, String.format(msg, args));
+    @Override
+    public void log_debug(String msg, Object... args) {
+//        System.out.printf("%-15s | [Debug] %s%n", "Dispatcher " + ssid, String.format(msg, args));
+    }
+
+    @Override
+    public String toString() {
+        return "Dispatcher " + ssid;
     }
 }

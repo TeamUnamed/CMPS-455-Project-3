@@ -14,40 +14,46 @@ public class SemaphoreLock {
         this.semaphore = new Semaphore(0);
     }
 
-    public boolean isLocked() {
-        boolean locked = false;
+    public boolean isLocked() throws InterruptedException {
+        mutex.acquire();
         try {
-            mutex.acquire();
-            locked = this.locked;
+            return this.locked;
+        } finally {
             mutex.release();
-        } catch (InterruptedException e) {
-            System.out.println(e.getMessage());
         }
-
-        return locked;
     }
 
-    public void lock() throws InterruptedException {
+    public boolean lock() throws InterruptedException {
         mutex.acquire();
-        if (locked) {
+
+        try {
+            if (locked)
+                return false;
+
+            locked = true;
+            
+        } finally {
             mutex.release();
-            return;
         }
 
-        locked = true;
-        mutex.release();
         semaphore.acquire();
+        return true;
     }
 
-    public void unlock() throws InterruptedException {
+    public boolean unlock() throws InterruptedException {
         mutex.acquire();
-        if (!locked) {
+
+        try {
+            if (!locked)
+                return false;
+            
+            locked = false;
+            semaphore.release();
+            
+        } finally {
             mutex.release();
-            return;
         }
 
-        locked = false;
-        semaphore.release();
-        mutex.release();
+        return true;
     }
 }
