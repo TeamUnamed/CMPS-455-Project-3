@@ -1,4 +1,8 @@
+package net.unamed.cmps455.project3;
+
+@Deprecated
 public class Argument {
+    @Deprecated
     public static void main(String[] args) {
 
         // {@code -S <algorithm>}
