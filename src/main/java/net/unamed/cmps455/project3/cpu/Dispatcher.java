@@ -101,6 +101,9 @@ public class Dispatcher extends SystemComponent {
                     exit.set(true);
                 break;
             case "task_queued":
+                if (!algorithm.isPreemptive())
+                    return;
+
                 int currentBurst = (int) payload[0];
                 int maxBurst = (int) payload[1];
                 if (currentBurst < this.currentBurst && maxBurst < this.maxBurst)
