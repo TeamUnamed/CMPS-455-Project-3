@@ -8,17 +8,30 @@ import java.util.ListIterator;
 public class NSJFAlgorithm extends DispatchAlgorithm {
 
     @Override
-    public Task pickFromQueue(ListIterator<Task> iterator){
+    public Task pickFromQueue(ListIterator<Task> iterator) {
+        int currentIndex = -1;
+        int index = -1;
         Task task = null;
-        int minBurst;
 
-        do{
-            Task currentTask = iterator.next();
-            minBurst = currentTask.getMaxBurst();
-            if(task == null || currentTask.maxBurst < minBurst){
-                task = currentTask;
+        while (iterator.hasNext()) {
+
+            currentIndex = iterator.nextIndex();
+            Task iTask = iterator.next();
+            if (task == null || iTask.getRemainingBurst() < task.getRemainingBurst()) {
+                index = currentIndex;
+                task = iTask;
             }
-        }while(iterator.hasNext());
+        }
+
+        while (index != -1 && iterator.hasPrevious()) {
+            currentIndex = iterator.previousIndex();
+            iterator.previous();
+            if (currentIndex == index) {
+                iterator.remove();
+                task.setAllottedBurst(task.getMaxBurst());
+                break;
+            }
+        }
 
         return task;
     }
