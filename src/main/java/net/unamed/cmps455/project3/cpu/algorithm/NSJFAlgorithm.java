@@ -1,11 +1,14 @@
-package net.unamed.cmps455.project3;
+package net.unamed.cmps455.project3.cpu.algorithm;
 
-import java.util.Iterator;
+import net.unamed.cmps455.project3.Task;
+import net.unamed.cmps455.project3.cpu.DispatchAlgorithm;
+
+import java.util.ListIterator;
 
 public class NSJFAlgorithm extends DispatchAlgorithm {
 
     @Override
-    public Task pickFromQueue(Iterator<Task> iterator){
+    public Task pickFromQueue(ListIterator<Task> iterator){
         Task task = null;
         int minBurst;
 
